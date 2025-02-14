@@ -25,15 +25,20 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-## Get a fresh project
+## Environment Variables
 
-When you're ready, run:
+This project uses AppWrite (free) for user authentication and basic database solutions. You'll need to ensure that you have all the proper configuration options set up:
 
-```bash
-npm run reset-project
+```plaintext
+# .env.local
+EXPO_PUBLIC_APPWRITE_PROJECT_ID={...}
+EXPO_PUBLIC_APPWRITE_ENDPOINT={...}
+EXPO_PUBLIC_APPWRITE_DATABASE_ID={...}
+EXPO_PUBLIC_APPWRITE_AGENTS_COLLECTION_ID={...}
+EXPO_PUBLIC_APPWRITE_GALLERIES_COLLECTION_ID={...}
+EXPO_PUBLIC_APPWRITE_REVIEWS_COLLECTION_ID={...}
+EXPO_PUBLIC_APPWRITE_PROPERTIES_COLLECTION_ID={...}
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
 ## Learn more
 
