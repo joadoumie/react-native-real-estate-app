@@ -5,9 +5,11 @@ import {
   OAuthProvider,
   Databases,
   Query,
+  ID,
 } from "react-native-appwrite";
 import * as Linking from "expo-linking";
 import { openAuthSessionAsync } from "expo-web-browser";
+import { INewPost } from "@/types";
 
 export const config = {
   platform: "com.betwork.restate",
@@ -156,6 +158,62 @@ export async function getPropertyById({ id }: { id: string }) {
       config.databaseId!,
       config.propertiesCollectionId!,
       id
+    );
+    return result;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+export async function getReviews({
+  limit,
+  cursorAfter,
+}: {
+  limit?: number;
+  cursorAfter?: string;
+}) {
+  try {
+    console.log("Fetching reviews through getReviews()");
+    const queries = [Query.orderDesc("$createdAt"), Query.limit(limit || 10)];
+    if (cursorAfter) {
+      queries.push(Query.cursorAfter(cursorAfter));
+    }
+
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.reviewsCollectionId!,
+      queries
+    );
+    return result.documents;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function getReviewById({ id }: { id: string }) {
+  try {
+    console.log("Fetching review through getReviewById()");
+    const result = await databases.getDocument(
+      config.databaseId!,
+      config.reviewsCollectionId!,
+      id
+    );
+    return [result];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function createPost(data: INewPost) {
+  try {
+    const result = await databases.createDocument(
+      config.databaseId!,
+      config.reviewsCollectionId!,
+      ID.unique(),
+      data
     );
     return result;
   } catch (error) {

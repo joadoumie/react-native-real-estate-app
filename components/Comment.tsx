@@ -1,15 +1,18 @@
-import { View, Text, Image } from "react-native";
-
+import { View, Text, Image, TouchableOpacity } from "react-native";
 import images from "@/constants/images";
 import icons from "@/constants/icons";
 import { Models } from "react-native-appwrite";
+import { router } from "expo-router";
 
 interface Props {
+  isClickable: boolean;
   item: Models.Document;
 }
 
-const Comment = ({ item }: Props) => {
-  return (
+const Comment = ({ isClickable, item }: Props) => {
+  const handleCommentPress = (id: string) => router.push(`/posts/${id}`);
+
+  const CommentContent = () => (
     <View className="flex flex-col items-start">
       <View className="flex flex-row items-center">
         <Image source={{ uri: item.avatar }} className="size-14 rounded-full" />
@@ -37,6 +40,16 @@ const Comment = ({ item }: Props) => {
           {new Date(item.$createdAt).toDateString()}
         </Text>
       </View>
+    </View>
+  );
+
+  return isClickable ? (
+    <TouchableOpacity onPress={() => handleCommentPress(item.$id)}>
+      <CommentContent />
+    </TouchableOpacity>
+  ) : (
+    <View>
+      <CommentContent />
     </View>
   );
 };

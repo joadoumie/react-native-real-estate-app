@@ -247,7 +247,7 @@ const Property = () => {
               </View>
 
               <View className="mt-5">
-                <Comment item={property?.reviews[0]} />
+                <Comment item={property?.reviews[0]} isClickable={false} />
               </View>
             </View>
           )}
