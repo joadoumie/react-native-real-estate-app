@@ -1,11 +1,27 @@
-import { Client, Account, Avatars, OAuthProvider } from "react-native-appwrite";
+import {
+  Client,
+  Account,
+  Avatars,
+  OAuthProvider,
+  Databases,
+  Query,
+  ID,
+} from "react-native-appwrite";
 import * as Linking from "expo-linking";
 import { openAuthSessionAsync } from "expo-web-browser";
+import { INewPost } from "@/types";
 
 export const config = {
   platform: "com.betwork.restate",
   endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT,
   projectId: process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+  databaseId: process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID,
+  galleriesCollectionId:
+    process.env.EXPO_PUBLIC_APPWRITE_GALLERIES_COLLECTION_ID,
+  reviewsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_REVIEWS_COLLECTION_ID,
+  agentsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_AGENTS_COLLECTION_ID,
+  propertiesCollectionId:
+    process.env.EXPO_PUBLIC_APPWRITE_PROPERTIES_COLLECTION_ID,
 };
 
 export const client = new Client();
@@ -17,6 +33,7 @@ client
 
 export const avatar = new Avatars(client);
 export const account = new Account(client);
+export const databases = new Databases(client);
 
 export async function login() {
   try {
@@ -74,6 +91,131 @@ export async function getCurrentUser() {
         avatar: userAvatar.toString(),
       };
     }
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+export async function getLatestProperties() {
+  try {
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.propertiesCollectionId!,
+      [Query.orderAsc("$createdAt"), Query.limit(5)]
+    );
+    return result.documents;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function getProperties({
+  filter,
+  query,
+  limit,
+}: {
+  filter: string;
+  query: string;
+  limit?: number;
+}) {
+  try {
+    const buildQuery = [Query.orderDesc("$createdAt")];
+    if (filter && filter != "All") {
+      buildQuery.push(Query.equal("type", filter));
+    }
+
+    if (query) {
+      buildQuery.push(
+        Query.or([
+          Query.search("name", query),
+          Query.search("address", query),
+          Query.search("type", query),
+        ])
+      );
+    }
+
+    if (limit) {
+      buildQuery.push(Query.limit(limit));
+    }
+
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.propertiesCollectionId!,
+      buildQuery
+    );
+    return result.documents;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function getPropertyById({ id }: { id: string }) {
+  try {
+    const result = await databases.getDocument(
+      config.databaseId!,
+      config.propertiesCollectionId!,
+      id
+    );
+    return result;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+export async function getReviews({
+  limit,
+  cursorAfter,
+}: {
+  limit?: number;
+  cursorAfter?: string;
+}) {
+  try {
+    console.log("Fetching reviews through getReviews()");
+    const queries = [Query.orderDesc("$createdAt"), Query.limit(limit || 10)];
+    if (cursorAfter) {
+      queries.push(Query.cursorAfter(cursorAfter));
+    }
+
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.reviewsCollectionId!,
+      queries
+    );
+    return result.documents;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function getReviewById({ id }: { id: string }) {
+  try {
+    console.log("Fetching review through getReviewById()");
+    const result = await databases.getDocument(
+      config.databaseId!,
+      config.reviewsCollectionId!,
+      id
+    );
+    return [result];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function createPost(data: INewPost) {
+  try {
+    const result = await databases.createDocument(
+      config.databaseId!,
+      config.reviewsCollectionId!,
+      ID.unique(),
+      data
+    );
+    return result;
   } catch (error) {
     console.error(error);
     return null;
