@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   ImageSourcePropType,
 } from "react-native";
-import React from "react";
+import React, { useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import icons from "@/constants/icons";
 import images from "@/constants/images";
 import { settings } from "@/constants/data";
-import { logout } from "@/lib/appwrite";
+import { logout, uploadToStorage } from "@/lib/appwrite";
 import { useGlobalContext } from "@/lib/global-provider";
+import * as ImagePicker from "expo-image-picker";
+import { config, updateUserPreferences } from "@/lib/appwrite";
 
 interface SettingsItemProps {
   title: string;
@@ -49,6 +51,18 @@ const SettingsItem = ({
 const Profile = () => {
   const { user, refetch } = useGlobalContext();
 
+  useEffect(() => {
+    (async () => {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Sorry, we need camera roll permissions to make this work!"
+        );
+      }
+    })();
+  }, []);
+
   const handleLogout = async () => {
     const result = await logout();
 
@@ -59,6 +73,43 @@ const Profile = () => {
       Alert.alert("Error", "Failed to logout");
     }
   };
+
+  const handleEditProfilePic = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      const uri = result.assets[0].uri;
+      const uploadResponse = await uploadToStorage(uri);
+
+      if (uploadResponse && uploadResponse.$id) {
+        // Construct the public URL using the file ID
+        const publicUrl = `${config.endpoint}/storage/buckets/${config.profilePicBucketId}/files/${uploadResponse.$id}/view?project=${config.projectId}`;
+
+        const updateResponse = await updateUserPreferences({
+          avatar: publicUrl,
+        });
+
+        if (updateResponse) {
+          Alert.alert("Success", "Profile picture updated successfully");
+          refetch(); // Refresh profile data
+        } else {
+          Alert.alert("Error", "Failed to update profile picture");
+        }
+      } else {
+        Alert.alert("Error", "Failed to upload profile picture");
+      }
+    } catch (error) {
+      console.error("Error updating profile picture:", error);
+    }
+  };
+
   return (
     <SafeAreaView className="h-full bg-white">
       <ScrollView
@@ -73,10 +124,15 @@ const Profile = () => {
         <View className="flex-row justify-center flex mt-5">
           <View className="flex flex-col items-center relative mt-5">
             <Image
-              source={{ uri: user?.avatar }}
+              source={{
+                uri: user?.prefs?.avatar ? user.prefs.avatar : user.avatar,
+              }}
               className="size-44 relative rounded-full"
             />
-            <TouchableOpacity className="absolute bottom-11 right-2">
+            <TouchableOpacity
+              className="absolute bottom-11 right-2"
+              onPress={handleEditProfilePic}
+            >
               <Image source={icons.edit} className="size-9" />
             </TouchableOpacity>
             <Text className="text-2xl font-rubik-bold mt-2">{user?.name}</Text>
