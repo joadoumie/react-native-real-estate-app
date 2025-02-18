@@ -23,18 +23,13 @@ export const useAppwrite = <T, P extends Record<string, string | number>>({
   const [loading, setLoading] = useState(!skip);
   const [error, setError] = useState<string | null>(null);
 
-  console.log("MADE IT TO APPWRITE THING");
-
   const fetchData = useCallback(
     async (fetchParams: P) => {
       setLoading(true);
       setError(null);
 
-      console.log("IM SO CONFUSED");
-
       try {
         const result = await fn(fetchParams);
-        console.log("Made it here ever?");
         setData(result);
       } catch (err: unknown) {
         const errorMessage =

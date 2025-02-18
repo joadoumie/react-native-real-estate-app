@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ImageSourcePropType,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import icons from "@/constants/icons";
 import images from "@/constants/images";
@@ -15,7 +15,7 @@ import { settings } from "@/constants/data";
 import { logout, uploadToStorage } from "@/lib/appwrite";
 import { useGlobalContext } from "@/lib/global-provider";
 import * as ImagePicker from "expo-image-picker";
-import { useAppwrite } from "@/lib/useAppwrite";
+import { config, updateUserPreferences } from "@/lib/appwrite";
 
 interface SettingsItemProps {
   title: string;
@@ -49,34 +49,19 @@ const SettingsItem = ({
 };
 
 const Profile = () => {
-  const { user } = useGlobalContext();
-
-  // Store selected image details
-  const [uploadParams, setUploadParams] = useState<{
-    uri: string;
-    permissions: string[];
-    fileId: string;
-    name?: string;
-    ftype?: string;
-  } | null>(null);
-
-  const {
-    data: response,
-    loading,
-    refetch,
-  } = useAppwrite({
-    fn: uploadToStorage,
-    params: uploadParams, // Trigger only when uploadParams is set
-    skip: !uploadParams, // Skip if no image is selected
-  });
+  const { user, refetch } = useGlobalContext();
 
   useEffect(() => {
-    console.log("uploadParams updated:", uploadParams);
-    if (response) {
-      Alert.alert("Success", "Profile picture updated successfully");
-      refetch();
-    }
-  }, [response, uploadParams]);
+    (async () => {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Sorry, we need camera roll permissions to make this work!"
+        );
+      }
+    })();
+  }, []);
 
   const handleLogout = async () => {
     const result = await logout();
@@ -90,7 +75,6 @@ const Profile = () => {
   };
 
   const handleEditProfilePic = async () => {
-    console.log("Trying to edit profile pic");
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -99,27 +83,30 @@ const Profile = () => {
         quality: 1,
       });
 
-      console.log("ImagePicker result:", result);
-
-      if (result.canceled) {
-        console.log("Image picker cancelled");
-        return;
-      }
+      if (result.canceled) return;
 
       const uri = result.assets[0].uri;
-      console.log(uri);
+      const uploadResponse = await uploadToStorage(uri);
 
-      if (uri) {
-        setUploadParams({
-          uri,
-          permissions: [],
-          fileId: result.assets[0].assetId,
-          name: result.assets[0].fileName,
-          ftype: result.assets[0].type,
+      if (uploadResponse && uploadResponse.$id) {
+        // Construct the public URL using the file ID
+        const publicUrl = `${config.endpoint}/storage/buckets/${config.profilePicBucketId}/files/${uploadResponse.$id}/view?project=${config.projectId}`;
+
+        const updateResponse = await updateUserPreferences({
+          avatar: publicUrl,
         });
+
+        if (updateResponse) {
+          Alert.alert("Success", "Profile picture updated successfully");
+          refetch(); // Refresh profile data
+        } else {
+          Alert.alert("Error", "Failed to update profile picture");
+        }
+      } else {
+        Alert.alert("Error", "Failed to upload profile picture");
       }
     } catch (error) {
-      console.error("Error launching image picker:", error);
+      console.error("Error updating profile picture:", error);
     }
   };
 

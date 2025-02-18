@@ -90,8 +90,6 @@ export async function uploadToStorage(
   name?: string,
   ftype?: string
 ) {
-  // Infer the type of the image
-  console.log("URI in uploadToStorage function:", uri);
   const match = /\.(\w+)$/.exec(uri);
   const filename = name ? `${name}.${match[1]}` : uri.split("/").pop();
   const fileIdP = filename.split("_").pop().split(".").shift();
@@ -114,6 +112,7 @@ export async function uploadToStorage(
       method: "POST", // or 'PUT'
       headers: {
         "Content-Type": "multipart/form-data;",
+        "X-Appwrite-Project": config.projectId!,
       },
       body: formData,
     }
@@ -261,6 +260,16 @@ export async function createPost(data: INewPost) {
     return result;
   } catch (error) {
     console.error(error);
+    return null;
+  }
+}
+
+export async function updateUserPreferences(prefs: Record<string, any>) {
+  try {
+    const response = await account.updatePrefs(prefs);
+    return response;
+  } catch (error) {
+    console.error("Failed to update user preferences:", error);
     return null;
   }
 }
