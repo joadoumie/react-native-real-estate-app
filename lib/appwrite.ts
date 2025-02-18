@@ -6,10 +6,12 @@ import {
   Databases,
   Query,
   ID,
+  Storage,
 } from "react-native-appwrite";
 import * as Linking from "expo-linking";
 import { openAuthSessionAsync } from "expo-web-browser";
 import { INewPost } from "@/types";
+import * as FileSystem from "expo-file-system";
 
 export const config = {
   platform: "com.betwork.restate",
@@ -22,6 +24,7 @@ export const config = {
   agentsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_AGENTS_COLLECTION_ID,
   propertiesCollectionId:
     process.env.EXPO_PUBLIC_APPWRITE_PROPERTIES_COLLECTION_ID,
+  profilePicBucketId: process.env.EXPO_PUBLIC_APPWRITE_PROFILE_PIC_STORAGE_ID,
 };
 
 export const client = new Client();
@@ -34,6 +37,7 @@ client
 export const avatar = new Avatars(client);
 export const account = new Account(client);
 export const databases = new Databases(client);
+export const storage = new Storage(client);
 
 export async function login() {
   try {
@@ -77,6 +81,45 @@ export async function logout() {
     console.error(error);
     return false;
   }
+}
+
+export async function uploadToStorage(
+  uri: string,
+  permissions: string[] = [],
+  fileId: string = ID.unique(),
+  name?: string,
+  ftype?: string
+) {
+  // Infer the type of the image
+  console.log("URI in uploadToStorage function:", uri);
+  const match = /\.(\w+)$/.exec(uri);
+  const filename = name ? `${name}.${match[1]}` : uri.split("/").pop();
+  const fileIdP = filename.split("_").pop().split(".").shift();
+  const type = ftype ? ftype : match ? `image/${match[1]}` : `image`;
+
+  const formData = new FormData();
+  formData.append("fileId", fileIdP);
+  formData.append("file", {
+    uri: uri,
+    name: filename,
+    type,
+  });
+  permissions.forEach((p) => {
+    formData.append("permissions[]", p);
+  });
+
+  const response = await fetch(
+    `${config.endpoint}/storage/buckets/${config.profilePicBucketId}/files`,
+    {
+      method: "POST", // or 'PUT'
+      headers: {
+        "Content-Type": "multipart/form-data;",
+      },
+      body: formData,
+    }
+  );
+
+  return response.json();
 }
 
 export async function getCurrentUser() {

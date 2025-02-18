@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   ImageSourcePropType,
 } from "react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import icons from "@/constants/icons";
 import images from "@/constants/images";
 import { settings } from "@/constants/data";
-import { logout } from "@/lib/appwrite";
+import { logout, uploadToStorage } from "@/lib/appwrite";
 import { useGlobalContext } from "@/lib/global-provider";
+import * as ImagePicker from "expo-image-picker";
+import { useAppwrite } from "@/lib/useAppwrite";
 
 interface SettingsItemProps {
   title: string;
@@ -47,7 +49,34 @@ const SettingsItem = ({
 };
 
 const Profile = () => {
-  const { user, refetch } = useGlobalContext();
+  const { user } = useGlobalContext();
+
+  // Store selected image details
+  const [uploadParams, setUploadParams] = useState<{
+    uri: string;
+    permissions: string[];
+    fileId: string;
+    name?: string;
+    ftype?: string;
+  } | null>(null);
+
+  const {
+    data: response,
+    loading,
+    refetch,
+  } = useAppwrite({
+    fn: uploadToStorage,
+    params: uploadParams, // Trigger only when uploadParams is set
+    skip: !uploadParams, // Skip if no image is selected
+  });
+
+  useEffect(() => {
+    console.log("uploadParams updated:", uploadParams);
+    if (response) {
+      Alert.alert("Success", "Profile picture updated successfully");
+      refetch();
+    }
+  }, [response, uploadParams]);
 
   const handleLogout = async () => {
     const result = await logout();
@@ -59,6 +88,41 @@ const Profile = () => {
       Alert.alert("Error", "Failed to logout");
     }
   };
+
+  const handleEditProfilePic = async () => {
+    console.log("Trying to edit profile pic");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      console.log("ImagePicker result:", result);
+
+      if (result.canceled) {
+        console.log("Image picker cancelled");
+        return;
+      }
+
+      const uri = result.assets[0].uri;
+      console.log(uri);
+
+      if (uri) {
+        setUploadParams({
+          uri,
+          permissions: [],
+          fileId: result.assets[0].assetId,
+          name: result.assets[0].fileName,
+          ftype: result.assets[0].type,
+        });
+      }
+    } catch (error) {
+      console.error("Error launching image picker:", error);
+    }
+  };
+
   return (
     <SafeAreaView className="h-full bg-white">
       <ScrollView
@@ -73,10 +137,15 @@ const Profile = () => {
         <View className="flex-row justify-center flex mt-5">
           <View className="flex flex-col items-center relative mt-5">
             <Image
-              source={{ uri: user?.avatar }}
+              source={{
+                uri: user?.prefs?.avatar ? user.prefs.avatar : user.avatar,
+              }}
               className="size-44 relative rounded-full"
             />
-            <TouchableOpacity className="absolute bottom-11 right-2">
+            <TouchableOpacity
+              className="absolute bottom-11 right-2"
+              onPress={handleEditProfilePic}
+            >
               <Image source={icons.edit} className="size-9" />
             </TouchableOpacity>
             <Text className="text-2xl font-rubik-bold mt-2">{user?.name}</Text>
