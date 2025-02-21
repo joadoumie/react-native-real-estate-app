@@ -15,7 +15,9 @@ import { settings } from "@/constants/data";
 import { logout, uploadToStorage } from "@/lib/appwrite";
 import { useGlobalContext } from "@/lib/global-provider";
 import * as ImagePicker from "expo-image-picker";
-import { config, updateUserPreferences } from "@/lib/appwrite";
+import { config, updateUserProfilePhoto } from "@/lib/appwrite";
+import { getUserProfilePic } from "@/lib/appwrite";
+import { useAppwrite } from "@/lib/useAppwrite";
 
 interface SettingsItemProps {
   title: string;
@@ -51,17 +53,14 @@ const SettingsItem = ({
 const Profile = () => {
   const { user, refetch } = useGlobalContext();
 
-  useEffect(() => {
-    (async () => {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Sorry, we need camera roll permissions to make this work!"
-        );
-      }
-    })();
-  }, []);
+  const { data: profileUrl, loading } = useAppwrite(
+    {
+      fn: getUserProfilePic,
+      params: user!,
+      skip: !user,
+    },
+    [user]
+  );
 
   const handleLogout = async () => {
     const result = await logout();
@@ -76,6 +75,13 @@ const Profile = () => {
 
   const handleEditProfilePic = async () => {
     try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "We may need camera roll permissions to make this work. Please enable it from settings."
+        );
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
@@ -92,9 +98,8 @@ const Profile = () => {
         // Construct the public URL using the file ID
         const publicUrl = `${config.endpoint}/storage/buckets/${config.profilePicBucketId}/files/${uploadResponse.$id}/view?project=${config.projectId}`;
 
-        const updateResponse = await updateUserPreferences({
-          avatar: publicUrl,
-        });
+        const updateResponse = await updateUserProfilePhoto(publicUrl);
+        console.log(updateResponse);
 
         if (updateResponse) {
           Alert.alert("Success", "Profile picture updated successfully");
@@ -109,6 +114,8 @@ const Profile = () => {
       console.error("Error updating profile picture:", error);
     }
   };
+
+  console.log("PROFILE URL", profileUrl);
 
   return (
     <SafeAreaView className="h-full bg-white">
@@ -125,7 +132,7 @@ const Profile = () => {
           <View className="flex flex-col items-center relative mt-5">
             <Image
               source={{
-                uri: user?.prefs?.avatar ? user.prefs.avatar : user.avatar,
+                uri: loading ? user.avatar : profileUrl || user.avatar,
               }}
               className="size-44 relative rounded-full"
             />

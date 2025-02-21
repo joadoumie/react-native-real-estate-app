@@ -76,6 +76,20 @@ const TabsLayout = () => {
         }}
       />
       <Tabs.Screen
+        name="leaderboard"
+        options={{
+          title: "Leaderboard",
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              icon={icons.people}
+              focused={focused}
+              title="Leaderboard"
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: "Explore",

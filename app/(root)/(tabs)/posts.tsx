@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Image,
   Text,
+  SafeAreaView,
 } from "react-native";
 import Comment from "@/components/Comment";
 import { getReviews } from "@/lib/appwrite";
@@ -104,61 +105,73 @@ export default function Posts() {
   }, []);
 
   return (
-    <View className="mt-7 px-4 flex-1">
-      <FlatList
-        data={reviews}
-        renderItem={renderItem} // Memoized!
-        keyExtractor={(item) => item.$id}
-        contentContainerClassName="mt-5 pb-32"
-        initialNumToRender={10} // Prevents unnecessary loading on first render
-        extraData={reviews.length} // Forces re-render only when list length changes
-        onEndReached={() => {
-          reachedBottom.current = true;
-          loadMoreReviews();
-        }}
-        onEndReachedThreshold={0.1}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator size="large" className="text-primary-300 mt-5" />
-          ) : (
-            <NoResults />
-          )
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={{ padding: 15, alignItems: "center" }}>
-              <ActivityIndicator size="small" color="#888" />
-              <Text style={{ color: "#888", marginTop: 5 }}>
-                Loading more...
+    <SafeAreaView className="h-full bg-white">
+      <View className="px-7 mt-5 flex-1">
+        <FlatList
+          data={reviews}
+          renderItem={renderItem} // Memoized!
+          keyExtractor={(item) => item.$id}
+          contentContainerClassName="pb-32"
+          initialNumToRender={10} // Prevents unnecessary loading on first render
+          extraData={reviews.length} // Forces re-render only when list length changes
+          onEndReached={() => {
+            reachedBottom.current = true;
+            loadMoreReviews();
+          }}
+          onEndReachedThreshold={0.1}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator
+                size="large"
+                className="text-primary-300 mt-5"
+              />
+            ) : (
+              <NoResults />
+            )
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={{ padding: 15, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#888" />
+                <Text style={{ color: "#888", marginTop: 5 }}>
+                  Loading more...
+                </Text>
+              </View>
+            ) : null
+          }
+          ListHeaderComponent={
+            <View className="flex flex-row items-center justify-between">
+              <Text className="pb-3 text-xl font-rubik-bold text-black-300">
+                Posts
               </Text>
             </View>
-          ) : null
-        }
-      />
-      <View
-        style={{
-          position: "absolute",
-          bottom: 90,
-          right: 20,
-          alignItems: "center",
-        }}
-      >
-        <TouchableOpacity
-          className="bg-primary-300 shadow-md shadow-zinc-400"
+          }
+        />
+        <View
           style={{
-            width: 60,
-            height: 60,
-            borderRadius: 30,
-            justifyContent: "center",
+            position: "absolute",
+            bottom: 90,
+            right: 20,
             alignItems: "center",
-            elevation: 5,
           }}
-          onPress={() => router.push(`/posts/create`)}
         >
-          <Image source={icons.plus} style={{ width: 24, height: 24 }} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-primary-300 shadow-md shadow-zinc-400"
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: 30,
+              justifyContent: "center",
+              alignItems: "center",
+              elevation: 5,
+            }}
+            onPress={() => router.push(`/posts/create`)}
+          >
+            <Image source={icons.plus} style={{ width: 24, height: 24 }} />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
