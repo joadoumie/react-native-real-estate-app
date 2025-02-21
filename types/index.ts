@@ -5,3 +5,20 @@ export type INewPost = {
   review: string;
   rating: double;
 };
+
+export type INewUser = {
+  name: string;
+  email: string;
+  avatar: string;
+  balance: number;
+};
+
+export type IUser = {
+  name: string;
+  email: string;
+  avatar: string;
+  balance: number;
+  username: string;
+  rank?: string;
+  ß;
+};
