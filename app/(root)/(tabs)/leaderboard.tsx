@@ -1,16 +1,35 @@
-import { View, Text, FlatList, SafeAreaView, Image } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  SafeAreaView,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
 import { useGlobalContext } from "@/lib/global-provider";
 import Ranking from "@/components/Ranking";
 import icons from "@/constants/icons";
 import { useState } from "react";
 import { useAppwrite } from "@/lib/useAppwrite";
-import { getSortedUsersByBalance } from "@/lib/appwrite";
+import { getSortedUsersByBalance, getUserProfilePic } from "@/lib/appwrite";
 import { IUser } from "@/lib/types";
+import NoResults from "@/components/NoResults";
 
 export default function Leaderboard() {
   const { user } = useGlobalContext();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data, loading } = useAppwrite<{
+  const { data: profileUrl, loading: profileLoading } = useAppwrite(
+    {
+      fn: getUserProfilePic,
+      params: user!,
+      skip: !user,
+    },
+    [user]
+  );
+
+  const { data, refetch, loading } = useAppwrite<{
     leaderboard: LeaderboardUser[];
     userRank?: string;
     userBalance?: number;
@@ -35,7 +54,7 @@ export default function Leaderboard() {
           </Text>
           <Image
             source={{
-              uri: user?.prefs?.avatar ? user.prefs.avatar : user.avatar,
+              uri: profileLoading ? user.avatar : profileUrl || user.avatar,
             }}
             className="size-16 relative rounded-full"
           />
@@ -50,6 +69,19 @@ export default function Leaderboard() {
           data={sortedUsers}
           renderItem={({ item }) => <Ranking user={item} />}
           keyExtractor={(item) => item.$id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refetch} />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator
+                size="large"
+                className="text-primary-300 mt-5"
+              />
+            ) : (
+              <NoResults />
+            )
+          }
         />
       </View>
     </SafeAreaView>

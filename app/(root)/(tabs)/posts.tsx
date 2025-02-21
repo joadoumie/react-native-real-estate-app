@@ -6,6 +6,7 @@ import {
   Image,
   Text,
   SafeAreaView,
+  RefreshControl,
 } from "react-native";
 import Comment from "@/components/Comment";
 import { getReviews } from "@/lib/appwrite";
@@ -23,6 +24,7 @@ export default function Posts() {
   const [lastReviewId, setLastReviewId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const hasFetchedOnce = useRef(false);
   const isFetching = useRef(false);
@@ -38,6 +40,18 @@ export default function Posts() {
     },
     skip: true,
   });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setReviews([]); // Clear the list to ensure new data appears at the top
+    prevReviews.current = []; // Reset previous data tracking
+    setLastReviewId(null); // Reset cursor for fresh data
+    setHasMore(true); // Allow loading more data again
+
+    await refetch({ limit: 10 });
+
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (!hasFetchedOnce.current) {
@@ -111,6 +125,9 @@ export default function Posts() {
           data={reviews}
           renderItem={renderItem} // Memoized!
           keyExtractor={(item) => item.$id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
           contentContainerClassName="pb-32"
           initialNumToRender={10} // Prevents unnecessary loading on first render
           extraData={reviews.length} // Forces re-render only when list length changes
