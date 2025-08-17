@@ -11,9 +11,9 @@ import { useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 
 import icons from "@/constants/icons";
-import Search from "@/components/Search";
-import { Card } from "@/components/Cards";
-import Filters from "@/components/Filters";
+import Search from "@/components/search";
+import { Card } from "@/components/cards";
+import Filters from "@/components/filters";
 import NoResults from "@/components/NoResults";
 
 import { getProperties } from "@/lib/appwrite";

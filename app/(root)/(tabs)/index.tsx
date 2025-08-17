@@ -11,9 +11,9 @@ import {
 import { Link, useLocalSearchParams, router } from "expo-router";
 import images from "@/constants/images";
 import icons from "@/constants/icons";
-import Search from "@/components/Search";
-import { Card, FeaturedCard } from "@/components/Cards";
-import Filters from "@/components/Filters";
+import Search from "@/components/search";
+import { Card, FeaturedCard } from "@/components/cards";
+import Filters from "@/components/filters";
 import { useGlobalContext } from "@/lib/global-provider";
 import seed from "@/lib/seed";
 import { useAppwrite } from "@/lib/useAppwrite";
