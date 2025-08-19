@@ -47,6 +47,7 @@ export default function Posts() {
     prevReviews.current = []; // Reset previous data tracking
     setLastReviewId(null); // Reset cursor for fresh data
     setHasMore(true); // Allow loading more data again
+    // Keep like status - don't clear it to prevent flashing
 
     await refetch({ limit: 10 });
 
@@ -74,12 +75,14 @@ export default function Posts() {
     );
 
     if (newReviews.length > 0) {
-      prevReviews.current = [...prevReviews.current, ...newReviews]; // Keep track of previous data
+      prevReviews.current = [...prevReviews.current, ...newReviews];
       setReviews((prev) => [...prev, ...newReviews]);
       setLastReviewId(data[data.length - 1].$id);
       setHasMore(data.length === 10);
+      
     }
-  }, [data]);
+  }, [data, user]);
+
 
   const loadMoreReviews = useCallback(async () => {
     if (
@@ -113,10 +116,14 @@ export default function Posts() {
   const renderItem = useCallback(({ item }: { item: Models.Document }) => {
     return (
       <View className="border-t border-primary-200 py-5">
-        <Comment item={item} isClickable={true} />
+        <Comment 
+          item={item} 
+          isClickable={true} 
+          itemType="post"
+        />
       </View>
     );
-  }, []);
+  }, []); // No dependencies - prevents any re-renders
 
   return (
     <SafeAreaView className="h-full bg-white">
@@ -130,7 +137,7 @@ export default function Posts() {
           }
           contentContainerClassName="pb-32"
           initialNumToRender={10} // Prevents unnecessary loading on first render
-          extraData={reviews.length} // Forces re-render only when list length changes
+          extraData={reviews.length} // Only re-render when list length changes
           onEndReached={() => {
             reachedBottom.current = true;
             loadMoreReviews();

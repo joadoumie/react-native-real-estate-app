@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, Touchable } from "react-native";
+import { View, Text, Image, TouchableOpacity } from "react-native";
 import React from "react";
 import images from "@/constants/images";
 import icons from "@/constants/icons";
@@ -55,34 +55,78 @@ export const FeaturedCard = ({
 };
 
 export const Card = ({
-  item: { image, rating, name, address, price },
+  item: { rating, name, address },
   onPress,
 }: Props) => {
+  // Mock NBA game data - later this will come from your API
+  const homeTeam = name || "Lakers";
+  const awayTeam = address || "Warriors";
+  const homeOdds = "+110";
+  const awayOdds = "-130";
+  const gameTime = "8:00 PM EST";
+  const isLive = rating > 4; // Mock live indicator
+
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="flex-1 w-full mt-4 px-3 py-4 rounded-lg bg-white shadow-lg shadow-black-100/70 relative"
+      className="w-full mt-4 px-4 py-4 rounded-lg bg-white shadow-lg shadow-black-100/70 relative"
     >
-      <View className="flex flex-row items-center absolute px-2 top-5 right-5 bg-white/90 p-1 rounded-full z-50">
-        <Image source={icons.star} className="size-3.5" />
-        <Text className="text-xs font-rubik-bold text-primary-300 ml-0.5">
-          {rating}
-        </Text>
-      </View>
-      <Image source={{ uri: image }} className="w-full h-40 rounded-lg" />
-      <View className="flex flex-col mt-2">
-        <Text className="text-base font-rubik-bold text-black-300">{name}</Text>
-        <Text className="text-xs font-rubik text-black-200">{address}</Text>
-        <View className="flex flex-row items-center justify-between mt-2">
-          <Text className="text-base font-rubik-bold text-primary-300">
-            {price}
-          </Text>
-          <Image
-            source={icons.heart}
-            className="w-5 h-5 mr-2"
-            tintColor="#191d31"
-          />
+      {/* Live indicator */}
+      {isLive && (
+        <View className="absolute top-3 right-3 bg-red-500 px-2 py-1 rounded-full">
+          <Text className="text-xs text-white font-rubik-bold">LIVE</Text>
         </View>
+      )}
+      
+      {/* Game time */}
+      <Text className="text-xs text-black-200 font-rubik text-center mb-3">
+        {gameTime}
+      </Text>
+      
+      {/* Teams and odds */}
+      <View className="flex flex-row items-center justify-between">
+        {/* Away team */}
+        <View className="flex flex-col items-center flex-1">
+          <Text className="text-base font-rubik-bold text-black-300 mb-2">
+            {awayTeam}
+          </Text>
+          <TouchableOpacity className="bg-primary-100 border border-primary-200 px-4 py-2 rounded-lg min-w-[70px]">
+            <Text className="text-sm font-rubik-bold text-primary-300 text-center">
+              {awayOdds}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* VS */}
+        <View className="mx-4">
+          <Text className="text-black-200 font-rubik-bold">VS</Text>
+        </View>
+        
+        {/* Home team */}
+        <View className="flex flex-col items-center flex-1">
+          <Text className="text-base font-rubik-bold text-black-300 mb-2">
+            {homeTeam}
+          </Text>
+          <TouchableOpacity className="bg-primary-100 border border-primary-200 px-4 py-2 rounded-lg min-w-[70px]">
+            <Text className="text-sm font-rubik-bold text-primary-300 text-center">
+              {homeOdds}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {/* Additional betting options */}
+      <View className="flex flex-row justify-between mt-4 pt-3 border-t border-gray-100">
+        <TouchableOpacity className="flex-1 mr-2 bg-accent-100 py-2 rounded-lg">
+          <Text className="text-xs text-black-300 font-rubik text-center">
+            Over 218.5
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity className="flex-1 ml-2 bg-accent-100 py-2 rounded-lg">
+          <Text className="text-xs text-black-300 font-rubik text-center">
+            Under 218.5
+          </Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );

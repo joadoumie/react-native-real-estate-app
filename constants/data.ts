@@ -56,15 +56,14 @@ export const featuredCards = [
 ];
 
 export const categories = [
-  { title: "All", category: "All" },
-  { title: "Houses", category: "House" },
-  { title: "Condos", category: "Condos" },
-  { title: "Duplexes", category: "Duplexes" },
-  { title: "Studios", category: "Studios" },
-  { title: "Villas", category: "Villa" },
-  { title: "Apartments", category: "Apartments" },
-  { title: "Townhomes", category: "Townhomes" },
-  { title: "Others", category: "Others" },
+  { title: "All Games", category: "All" },
+  { title: "Live", category: "Live" },
+  { title: "Today", category: "Today" },
+  { title: "Tomorrow", category: "Tomorrow" },
+  { title: "This Week", category: "Week" },
+  { title: "Playoffs", category: "Playoffs" },
+  { title: "Regular", category: "Regular" },
+  { title: "Favorites", category: "Favorites" },
 ];
 
 export const settings = [

@@ -42,19 +42,18 @@ const Explore = () => {
     });
   }, [params.filter, params.query]);
 
-  const handleCardPress = (id: string) => router.push(`/properties/${id}`);
+  const handleCardPress = (id: string) => router.push(`/games/${id}`);
 
   return (
     <SafeAreaView className="h-full bg-white">
       <FlatList
         data={properties}
-        numColumns={2}
+        numColumns={1}
         renderItem={({ item }) => (
           <Card item={item} onPress={() => handleCardPress(item.$id)} />
         )}
         keyExtractor={(item) => item.$id}
-        contentContainerClassName="pb-32"
-        columnWrapperClassName="flex gap-5 px-5"
+        contentContainerClassName="pb-32 px-5"
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           loading ? (
@@ -74,7 +73,7 @@ const Explore = () => {
               </TouchableOpacity>
 
               <Text className="text-base mr-2 text-center font-rubik-medium text-black-300">
-                Search for Your Ideal Home
+                NBA Betting
               </Text>
               <Image source={icons.bell} className="w-6 h-6" />
             </View>
@@ -85,7 +84,7 @@ const Explore = () => {
               <Filters />
 
               <Text className="text-xl font-rubik-bold text-black-300 mt-5">
-                Found {properties?.length} Properties
+                Found {properties?.length} Games
               </Text>
             </View>
           </View>

@@ -3,7 +3,7 @@ export type INewPost = {
   name: string;
   avatar: string;
   review: string;
-  rating: double;
+  rating: number;
 };
 
 export type INewUser = {
@@ -20,5 +20,26 @@ export type IUser = {
   balance: number;
   username: string;
   rank?: string;
-  ß;
+};
+
+export type INewComment = {
+  postId: string;
+  userId: string;
+  name: string;
+  content: string;
+  likes?: number;
+};
+
+export type ILike = {
+  userId: string;
+  itemId: string;
+  itemType: "post" | "comment";
+  likedAt: string;
+};
+
+export type INewLike = {
+  userId: string;
+  itemId: string;
+  itemType: "post" | "comment";
+  likedAt: string;
 };
