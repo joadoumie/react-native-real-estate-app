@@ -114,6 +114,46 @@ const Profile = () => {
     }
   };
 
+  const handleEditProfilePic = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "We may need camera roll permissions to make this work. Please enable it from settings."
+        );
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      const uri = result.assets[0].uri;
+      const uploadResponse = await uploadToStorage(uri);
+
+      if (uploadResponse && uploadResponse.$id) {
+        const publicUrl = `${config.endpoint}/storage/buckets/${config.profilePicBucketId}/files/${uploadResponse.$id}/view?project=${config.projectId}`;
+
+        const updateResponse = await updateUserProfilePhoto(publicUrl);
+
+        if (updateResponse) {
+          Alert.alert("Success", "Profile picture updated successfully");
+          refetch();
+        } else {
+          Alert.alert("Error", "Failed to update profile picture");
+        }
+      } else {
+        Alert.alert("Error", "Failed to upload profile picture");
+      }
+    } catch (error) {
+      console.error("Error updating profile picture:", error);
+    }
+  };
+
   const TabButton = ({
     id,
     title,
@@ -196,14 +236,40 @@ const Profile = () => {
 
   return (
     <SafeAreaView className="h-full bg-gray-50">
-      {/* Enhanced Header */}
-      <ProfileHeader
-        user={user}
-        balance={balance}
-        profileUrl={profileUrl}
-        loading={loading}
-        onRefetch={refetch}
-      />
+      {/* Simple Header */}
+      <View className="bg-white mx-4 rounded-2xl mt-6 shadow-sm shadow-black/5 p-6">
+        <View className="flex-row justify-between items-center mb-4">
+          <Text className="text-2xl font-rubik-bold text-gray-900">Profile</Text>
+          <TouchableOpacity className="p-2">
+            <Image source={icons.bell} className="w-6 h-6" />
+          </TouchableOpacity>
+        </View>
+        
+        <View className="flex-row items-center">
+          <View className="relative">
+            <Image
+              source={{
+                uri: loading ? user.avatar : profileUrl || user.avatar,
+              }}
+              className="w-16 h-16 rounded-full border-2 border-gray-200"
+            />
+            <TouchableOpacity
+              className="absolute -bottom-1 -right-1 bg-primary-600 rounded-full p-1.5"
+              onPress={handleEditProfilePic}
+            >
+              <Image source={icons.edit} className="w-3 h-3 tint-white" />
+            </TouchableOpacity>
+          </View>
+          <View className="ml-4 flex-1">
+            <Text className="text-lg font-rubik-bold text-gray-900 mb-1">
+              {user?.name}
+            </Text>
+            <Text className="text-sm font-rubik text-gray-500">
+              {user?.email}
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {/* Tab Navigation */}
       <View className="bg-white mx-4 rounded-2xl mt-4 shadow-sm shadow-black/5">
