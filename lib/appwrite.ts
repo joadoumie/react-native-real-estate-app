@@ -539,45 +539,46 @@ async function decrementCommentCount(postId: string) {
 
 // ===== NEW SCALABLE LIKES SYSTEM =====
 
-export async function toggleLike(userId: string, itemId: string, itemType: "post" | "comment") {
+export async function toggleLike(
+  userId: string,
+  itemId: string,
+  itemType: "post" | "comment"
+) {
   try {
     if (!userId) {
-      throw new Error('userId is required but not provided');
+      throw new Error("userId is required but not provided");
     }
-    // Check if user already liked this item
     const existingLike = await checkUserLike(userId, itemId);
-    
+
     if (existingLike) {
-      // Unlike: Remove like record
       await databases.deleteDocument(
         config.databaseId!,
         config.likesCollectionId!,
         existingLike.$id
       );
-      
-      // Decrement like count
-      await updateItemLikeCount(itemId, itemType, -1);
-      
+
+      // Do NOT update the item from the client when using event-driven counters
+      // await updateItemLikeCount(itemId, itemType, -1); // removed
+
       return { liked: false, action: "unliked" };
     } else {
-      // Like: Create like record
       const newLike: INewLike = {
         userId,
         itemId,
         itemType,
         likedAt: new Date().toISOString(),
       };
-      
+
       await databases.createDocument(
         config.databaseId!,
         config.likesCollectionId!,
         ID.unique(),
         newLike
       );
-      
-      // Increment like count
-      await updateItemLikeCount(itemId, itemType, 1);
-      
+
+      // Do NOT update the item from the client when using event-driven counters
+      // await updateItemLikeCount(itemId, itemType, 1); // removed
+
       return { liked: true, action: "liked" };
     }
   } catch (error) {
@@ -594,10 +595,10 @@ export async function checkUserLike(userId: string, itemId: string) {
       [
         Query.equal("userId", userId),
         Query.equal("itemId", itemId),
-        Query.limit(1)
+        Query.limit(1),
       ]
     );
-    
+
     return result.documents.length > 0 ? result.documents[0] : null;
   } catch (error) {
     console.error("Failed to check user like:", error);
@@ -608,23 +609,23 @@ export async function checkUserLike(userId: string, itemId: string) {
 export async function getUserLikeStatus(userId: string, itemIds: string[]) {
   try {
     if (itemIds.length === 0) return {};
-    
+
     const result = await databases.listDocuments(
       config.databaseId!,
       config.likesCollectionId!,
       [
         Query.equal("userId", userId),
         Query.equal("itemId", itemIds),
-        Query.limit(itemIds.length)
+        Query.limit(itemIds.length),
       ]
     );
-    
+
     // Convert to lookup object
     const likeStatus: Record<string, boolean> = {};
-    result.documents.forEach(like => {
+    result.documents.forEach((like) => {
       likeStatus[like.itemId] = true;
     });
-    
+
     return likeStatus;
   } catch (error) {
     console.error("Failed to get user like status:", error);
@@ -632,37 +633,42 @@ export async function getUserLikeStatus(userId: string, itemIds: string[]) {
   }
 }
 
-async function updateItemLikeCount(itemId: string, itemType: "post" | "comment", increment: number) {
+async function updateItemLikeCount(
+  itemId: string,
+  itemType: "post" | "comment",
+  increment: number
+) {
   try {
-    const collectionId = itemType === "post" 
-      ? config.reviewsCollectionId! 
-      : config.commentsCollectionId!;
-    
+    const collectionId =
+      itemType === "post"
+        ? config.reviewsCollectionId!
+        : config.commentsCollectionId!;
+
     // Get current item
     const item = await databases.getDocument(
       config.databaseId!,
       collectionId,
       itemId
     );
-    
+
     // Update like count
     const newCount = Math.max(0, (item.likes || 0) + increment);
     const updateData: any = {
       likes: newCount,
     };
-    
+
     // If updating a post, always include commentCount to satisfy required field
     if (itemType === "post") {
       updateData.commentCount = item.commentCount || 0;
     }
-    
+
     await databases.updateDocument(
       config.databaseId!,
       collectionId,
       itemId,
       updateData
     );
-    
+
     return newCount;
   } catch (error) {
     console.error("Failed to update item like count:", error);
