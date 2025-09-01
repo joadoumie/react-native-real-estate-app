@@ -55,3 +55,7 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Potential 🐛
+
+- I think it's very possible that the like functionality is technically broken. What I mean by that is that I have this suspicion that it will actually let a user like/unlike a post multiple times (increment endlessly or decrement endlessly) if they find the network call. This is probably not something I need to worry about for now tbh. But maybe this will bite us one day? Hopefully? That means people use this thing... gotta get there first I guess.
