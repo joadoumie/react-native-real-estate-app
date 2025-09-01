@@ -42,11 +42,15 @@ const SettingsItem = ({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="flex flex-row items-center justify-between py-3"
+      className="flex flex-row items-center justify-between py-3 px-4"
     >
       <View className="flex flex-row items-center gap-3">
         <Image source={icon} className="size-6" />
-        <Text className={`text-lg font-rubik-medium text-black-300 ${textStyle || ''}`}>
+        <Text
+          className={`text-lg font-rubik-medium text-black-300 ${
+            textStyle || ""
+          }`}
+        >
           {title}
         </Text>
       </View>
@@ -57,11 +61,13 @@ const SettingsItem = ({
 
 const Profile = () => {
   const { user, refetch } = useGlobalContext();
-  const [activeTab, setActiveTab] = useState<'overview' | 'bets' | 'points' | 'settings'>('overview');
-  const [balance, setBalance] = useState<UserBalance>({ 
-    totalPoints: 0, 
-    pendingBets: 0, 
-    availablePoints: 0 
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "bets" | "points" | "settings"
+  >("overview");
+  const [balance, setBalance] = useState<UserBalance>({
+    totalPoints: 0,
+    pendingBets: 0,
+    availablePoints: 0,
   });
   const [balanceLoading, setBalanceLoading] = useState(true);
 
@@ -76,12 +82,12 @@ const Profile = () => {
 
   const fetchBalance = async () => {
     if (!user?.$id) return;
-    
+
     try {
       const userBalance = await getUserBalance(user.$id);
       setBalance(userBalance);
     } catch (error) {
-      console.error('Failed to fetch user balance:', error);
+      console.error("Failed to fetch user balance:", error);
       // Set default balance on error
       setBalance({
         totalPoints: 0,
@@ -108,7 +114,12 @@ const Profile = () => {
     }
   };
 
-  const TabButton = ({ id, title, active, onPress }: {
+  const TabButton = ({
+    id,
+    title,
+    active,
+    onPress,
+  }: {
     id: string;
     title: string;
     active: boolean;
@@ -116,13 +127,15 @@ const Profile = () => {
   }) => (
     <TouchableOpacity
       className={`flex-1 py-3 items-center border-b-2 ${
-        active ? 'border-primary-600' : 'border-transparent'
+        active ? "border-primary-600" : "border-transparent"
       }`}
       onPress={onPress}
     >
-      <Text className={`font-rubik-medium ${
-        active ? 'text-primary-600' : 'text-gray-500'
-      }`}>
+      <Text
+        className={`font-rubik-medium ${
+          active ? "text-primary-600" : "text-gray-500"
+        }`}
+      >
         {title}
       </Text>
     </TouchableOpacity>
@@ -130,48 +143,26 @@ const Profile = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'overview':
+      case "overview":
         return (
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-            <PointsCard 
-              balance={balance} 
-              onViewDetails={() => setActiveTab('points')} 
+            <PointsCard
+              balance={balance}
+              onViewDetails={() => setActiveTab("points")}
             />
-            {/* Settings Section */}
-            <View className="mx-4 mb-6">
-              <Text className="text-lg font-rubik-bold text-gray-900 mb-4">Quick Actions</Text>
-              <View className="bg-white rounded-2xl shadow-sm shadow-black/5">
-                <SettingsItem title="My Bookings" icon={icons.calendar} />
-                <View className="h-px bg-gray-100 mx-4" />
-                <SettingsItem title="Payments" icon={icons.wallet} />
-                <View className="h-px bg-gray-100 mx-4" />
-                {settings.slice(2).map((item, index) => (
-                  <View key={index}>
-                    <SettingsItem {...item} />
-                    {index < settings.slice(2).length - 1 && (
-                      <View className="h-px bg-gray-100 mx-4" />
-                    )}
-                  </View>
-                ))}
-                <View className="h-px bg-gray-200 mx-4" />
-                <SettingsItem
-                  title="Logout"
-                  icon={icons.logout}
-                  onPress={handleLogout}
-                  textStyle="text-red-600"
-                  showArrow={false}
-                />
-              </View>
-            </View>
           </ScrollView>
         );
-      case 'bets':
+      case "bets":
         return <BetsTab />;
-      case 'points':
+      case "points":
         return <PointsTab />;
-      case 'settings':
+      case "settings":
         return (
-          <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-4">
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            className="flex-1 px-4"
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
             <View className="bg-white rounded-2xl shadow-sm shadow-black/5 mt-4">
               <SettingsItem title="My Bookings" icon={icons.calendar} />
               <View className="h-px bg-gray-100 mx-4" />
@@ -220,34 +211,32 @@ const Profile = () => {
           <TabButton
             id="overview"
             title="Overview"
-            active={activeTab === 'overview'}
-            onPress={() => setActiveTab('overview')}
+            active={activeTab === "overview"}
+            onPress={() => setActiveTab("overview")}
           />
           <TabButton
             id="bets"
             title="Bets"
-            active={activeTab === 'bets'}
-            onPress={() => setActiveTab('bets')}
+            active={activeTab === "bets"}
+            onPress={() => setActiveTab("bets")}
           />
           <TabButton
             id="points"
             title="Points"
-            active={activeTab === 'points'}
-            onPress={() => setActiveTab('points')}
+            active={activeTab === "points"}
+            onPress={() => setActiveTab("points")}
           />
           <TabButton
             id="settings"
             title="Settings"
-            active={activeTab === 'settings'}
-            onPress={() => setActiveTab('settings')}
+            active={activeTab === "settings"}
+            onPress={() => setActiveTab("settings")}
           />
         </View>
       </View>
 
       {/* Content */}
-      <View className="flex-1 mt-4">
-        {renderContent()}
-      </View>
+      <View className="flex-1 mt-4">{renderContent()}</View>
     </SafeAreaView>
   );
 };
