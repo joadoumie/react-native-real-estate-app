@@ -10,7 +10,7 @@ import {
 } from "react-native-appwrite";
 import * as Linking from "expo-linking";
 import { openAuthSessionAsync } from "expo-web-browser";
-import { INewPost, INewUser, INewComment, INewLike } from "@/types";
+import { INewPost, INewUser, INewComment, INewLike, IBet, IPointsTransaction, IGame, UserBalance } from "@/types";
 import * as FileSystem from "expo-file-system";
 import { getOrdinalSuffix } from "@/lib/helpers";
 
@@ -29,6 +29,9 @@ export const config = {
   usersCollectionId: process.env.EXPO_PUBLIC_APPWRITE_USERS_COLLECTION_ID,
   commentsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_COMMENTS_COLLECTION_ID,
   likesCollectionId: process.env.EXPO_PUBLIC_APPWRITE_LIKES_COLLECTION_ID,
+  gamesCollectionId: process.env.EXPO_PUBLIC_APPWRITE_GAMES_COLLECTION_ID,
+  betsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_BETS_COLLECTION_ID,
+  pointsTransactionsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_POINTS_TRANSACTIONS_COLLECTION_ID,
 };
 
 export const client = new Client();
@@ -672,6 +675,463 @@ async function updateItemLikeCount(
     return newCount;
   } catch (error) {
     console.error("Failed to update item like count:", error);
+    throw error;
+  }
+}
+
+// ===== BETTING SYSTEM FUNCTIONS =====
+
+// Points Management Functions
+export async function getUserBalance(userId: string): Promise<UserBalance> {
+  try {
+    const user = await databases.getDocument(
+      config.databaseId!,
+      config.usersCollectionId!,
+      userId
+    );
+
+    // Calculate pending bets amount
+    const activeBets = await databases.listDocuments(
+      config.databaseId!,
+      config.betsCollectionId!,
+      [
+        Query.equal("bettor1Id", userId),
+        Query.equal("status", ["open", "matched", "active"]),
+      ]
+    );
+
+    const pendingBets = activeBets.documents.reduce((total, bet) => {
+      return total + bet.amount;
+    }, 0);
+
+    return {
+      totalPoints: user.balance || 0,
+      pendingBets,
+      availablePoints: (user.balance || 0) - pendingBets,
+    };
+  } catch (error) {
+    console.error("Failed to get user balance:", error);
+    return {
+      totalPoints: 0,
+      pendingBets: 0,
+      availablePoints: 0,
+    };
+  }
+}
+
+export async function createPointsTransaction(transaction: IPointsTransaction) {
+  try {
+    const result = await databases.createDocument(
+      config.databaseId!,
+      config.pointsTransactionsCollectionId!,
+      ID.unique(),
+      transaction
+    );
+    return result;
+  } catch (error) {
+    console.error("Failed to create points transaction:", error);
+    return null;
+  }
+}
+
+export async function getPointsHistory(
+  userId: string,
+  limit: number = 20,
+  cursorAfter?: string
+) {
+  try {
+    const queries = [
+      Query.equal("userId", userId),
+      Query.orderDesc("$createdAt"),
+      Query.limit(limit),
+    ];
+
+    if (cursorAfter) {
+      queries.push(Query.cursorAfter(cursorAfter));
+    }
+
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.pointsTransactionsCollectionId!,
+      queries
+    );
+
+    return result.documents;
+  } catch (error) {
+    console.error("Failed to get points history:", error);
+    return [];
+  }
+}
+
+// Betting Functions
+export async function placeBet(betData: IBet) {
+  try {
+    // Get game data for odds
+    const game = await databases.getDocument(
+      config.databaseId!,
+      config.gamesCollectionId!,
+      betData.gameId
+    );
+
+    if (!game) {
+      throw new Error("Game not found");
+    }
+
+    // Check user balance
+    const userBalance = await getUserBalance(betData.bettor1Id);
+    if (userBalance.availablePoints < betData.amount) {
+      throw new Error("Insufficient balance");
+    }
+
+    // Set odds based on selection and bet mode
+    const odds = betData.bettor1Selection === "home" ? game.homeOdds : game.awayOdds;
+    
+    const bet: IBet = {
+      ...betData,
+      bettor1Odds: odds,
+      status: betData.betMode === "house" ? "active" : "open",
+    };
+
+    // If P2P bet, set opposite selection for bettor2
+    if (betData.betMode === "p2p") {
+      bet.bettor2Selection = betData.bettor1Selection === "home" ? "away" : "home";
+      bet.bettor2Odds = betData.bettor1Selection === "home" ? game.awayOdds : game.homeOdds;
+    }
+
+    // Create bet record
+    const result = await databases.createDocument(
+      config.databaseId!,
+      config.betsCollectionId!,
+      ID.unique(),
+      bet
+    );
+
+    // Create points transaction (deduct bet amount)
+    await createPointsTransaction({
+      userId: betData.bettor1Id,
+      amount: -betData.amount,
+      type: "bet_placed",
+      relatedBetId: result.$id,
+    });
+
+    // Update user balance
+    const currentUser = await databases.getDocument(
+      config.databaseId!,
+      config.usersCollectionId!,
+      betData.bettor1Id
+    );
+
+    await databases.updateDocument(
+      config.databaseId!,
+      config.usersCollectionId!,
+      betData.bettor1Id,
+      {
+        balance: currentUser.balance - betData.amount,
+      }
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Failed to place bet:", error);
+    throw error;
+  }
+}
+
+export async function getUserBets(
+  userId: string,
+  limit: number = 20,
+  cursorAfter?: string
+) {
+  try {
+    const queries = [
+      Query.or([
+        Query.equal("bettor1Id", userId),
+        Query.equal("bettor2Id", userId),
+      ]),
+      Query.orderDesc("$createdAt"),
+      Query.limit(limit),
+    ];
+
+    if (cursorAfter) {
+      queries.push(Query.cursorAfter(cursorAfter));
+    }
+
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.betsCollectionId!,
+      queries
+    );
+
+    return result.documents;
+  } catch (error) {
+    console.error("Failed to get user bets:", error);
+    return [];
+  }
+}
+
+export async function getActiveBets(userId: string) {
+  try {
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.betsCollectionId!,
+      [
+        Query.or([
+          Query.equal("bettor1Id", userId),
+          Query.equal("bettor2Id", userId),
+        ]),
+        Query.equal("status", ["open", "matched", "active"]),
+        Query.orderDesc("$createdAt"),
+      ]
+    );
+
+    return result.documents;
+  } catch (error) {
+    console.error("Failed to get active bets:", error);
+    return [];
+  }
+}
+
+export function calculatePayout(amount: number, odds: number): number {
+  // Odds calculation: if odds are positive, payout = amount * (odds/100) + amount
+  // if odds are negative, payout = amount * (100/Math.abs(odds)) + amount
+  if (odds > 0) {
+    return amount * (odds / 100) + amount;
+  } else {
+    return amount * (100 / Math.abs(odds)) + amount;
+  }
+}
+
+// Mock settlement function for testing
+export async function settleBet(betId: string, gameWinner: "home" | "away") {
+  try {
+    const bet = await databases.getDocument(
+      config.databaseId!,
+      config.betsCollectionId!,
+      betId
+    );
+
+    if (!bet || bet.status !== "active") {
+      throw new Error("Bet not found or not active");
+    }
+
+    let winnerId: string | undefined;
+    let loserId: string | undefined;
+    let bettor1Won = false;
+    let bettor2Won = false;
+
+    // Determine winner
+    if (bet.bettor1Selection === gameWinner) {
+      winnerId = bet.bettor1Id;
+      bettor1Won = true;
+      if (bet.betMode === "p2p" && bet.bettor2Id) {
+        loserId = bet.bettor2Id;
+      } else {
+        loserId = "house";
+      }
+    } else if (bet.betMode === "p2p" && bet.bettor2Id && bet.bettor2Selection === gameWinner) {
+      winnerId = bet.bettor2Id;
+      bettor2Won = true;
+      loserId = bet.bettor1Id;
+    } else {
+      // House wins
+      winnerId = "house";
+      loserId = bet.bettor1Id;
+      if (bet.betMode === "p2p" && bet.bettor2Id) {
+        loserId = bet.bettor1Id; // Could be either, depends on selections
+      }
+    }
+
+    // Calculate payouts
+    const bettor1Payout = bettor1Won ? calculatePayout(bet.amount, bet.bettor1Odds) : 0;
+    const bettor2Payout = bettor2Won && bet.bettor2Odds ? calculatePayout(bet.amount, bet.bettor2Odds) : 0;
+
+    // Update bet record
+    await databases.updateDocument(
+      config.databaseId!,
+      config.betsCollectionId!,
+      betId,
+      {
+        status: "won",
+        resolvedAt: new Date().toISOString(),
+        winnerId,
+        loserId,
+        bettor1Payout,
+        bettor2Payout,
+      }
+    );
+
+    // Process payouts and create transactions
+    if (bettor1Won && bettor1Payout > 0) {
+      await createPointsTransaction({
+        userId: bet.bettor1Id,
+        amount: bettor1Payout,
+        type: "bet_won",
+        relatedBetId: betId,
+      });
+
+      // Update user balance
+      const user = await databases.getDocument(
+        config.databaseId!,
+        config.usersCollectionId!,
+        bet.bettor1Id
+      );
+      
+      await databases.updateDocument(
+        config.databaseId!,
+        config.usersCollectionId!,
+        bet.bettor1Id,
+        {
+          balance: user.balance + bettor1Payout,
+        }
+      );
+    }
+
+    if (bettor2Won && bettor2Payout > 0 && bet.bettor2Id) {
+      await createPointsTransaction({
+        userId: bet.bettor2Id,
+        amount: bettor2Payout,
+        type: "bet_won",
+        relatedBetId: betId,
+      });
+
+      // Update user balance
+      const user = await databases.getDocument(
+        config.databaseId!,
+        config.usersCollectionId!,
+        bet.bettor2Id
+      );
+      
+      await databases.updateDocument(
+        config.databaseId!,
+        config.usersCollectionId!,
+        bet.bettor2Id,
+        {
+          balance: user.balance + bettor2Payout,
+        }
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to settle bet:", error);
+    return false;
+  }
+}
+
+// Additional utility functions for games
+export async function getGames(limit: number = 10) {
+  try {
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.gamesCollectionId!,
+      [Query.orderDesc("date"), Query.limit(limit)]
+    );
+    return result.documents;
+  } catch (error) {
+    console.error("Failed to get games:", error);
+    return [];
+  }
+}
+
+export async function getGameById(gameId: string) {
+  try {
+    const result = await databases.getDocument(
+      config.databaseId!,
+      config.gamesCollectionId!,
+      gameId
+    );
+    return result;
+  } catch (error) {
+    console.error("Failed to get game:", error);
+    return null;
+  }
+}
+
+// Get open P2P bets that users can join
+export async function getOpenP2PBets(excludeUserId?: string, limit: number = 20) {
+  try {
+    const queries = [
+      Query.equal("betMode", "p2p"),
+      Query.equal("status", "open"),
+      Query.orderDesc("$createdAt"),
+      Query.limit(limit),
+    ];
+
+    if (excludeUserId) {
+      queries.push(Query.notEqual("bettor1Id", excludeUserId));
+    }
+
+    const result = await databases.listDocuments(
+      config.databaseId!,
+      config.betsCollectionId!,
+      queries
+    );
+
+    return result.documents;
+  } catch (error) {
+    console.error("Failed to get open P2P bets:", error);
+    return [];
+  }
+}
+
+// Join an open P2P bet
+export async function joinP2PBet(betId: string, userId: string) {
+  try {
+    const bet = await databases.getDocument(
+      config.databaseId!,
+      config.betsCollectionId!,
+      betId
+    );
+
+    if (!bet || bet.status !== "open" || bet.betMode !== "p2p") {
+      throw new Error("Invalid bet or bet not available");
+    }
+
+    // Check user balance
+    const userBalance = await getUserBalance(userId);
+    if (userBalance.availablePoints < bet.amount) {
+      throw new Error("Insufficient balance");
+    }
+
+    // Update bet with second player
+    await databases.updateDocument(
+      config.databaseId!,
+      config.betsCollectionId!,
+      betId,
+      {
+        bettor2Id: userId,
+        status: "matched",
+        matchedAt: new Date().toISOString(),
+      }
+    );
+
+    // Create transaction for bettor2
+    await createPointsTransaction({
+      userId,
+      amount: -bet.amount,
+      type: "bet_placed",
+      relatedBetId: betId,
+    });
+
+    // Update bettor2 balance
+    const currentUser = await databases.getDocument(
+      config.databaseId!,
+      config.usersCollectionId!,
+      userId
+    );
+
+    await databases.updateDocument(
+      config.databaseId!,
+      config.usersCollectionId!,
+      userId,
+      {
+        balance: currentUser.balance - bet.amount,
+      }
+    );
+
+    return true;
+  } catch (error) {
+    console.error("Failed to join P2P bet:", error);
     throw error;
   }
 }

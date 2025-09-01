@@ -6,6 +6,8 @@ Betwork is a peer to peer sports betting social application. Currently there are
 
 Right now, we are only focusing on NBA as the sport in which you can bet.
 
+We are currently also thinking about points instead of money. Essentially, the users db in appwrite has a balance field that tracks the user's points. We will update this every week to reset to 1k points. There will basically be weekly winners.
+
 ## Tech Stack
 
 - Frontend: React Native, Expo, Typescript

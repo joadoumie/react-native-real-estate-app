@@ -40,6 +40,9 @@ EXPO_PUBLIC_APPWRITE_REVIEWS_COLLECTION_ID={...}
 EXPO_PUBLIC_APPWRITE_PROPERTIES_COLLECTION_ID={...}
 EXPO_PUBLIC_APPWRITE_PROFILE_PIC_STORAGE_ID={...}
 EXPO_PUBLIC_APPWRITE_USERS_COLLECTION_ID={...}
+EXPO_PUBLIC_APPWRITE_GAMES_COLLECTION_ID={...}
+EXPO_PUBLIC_APPWRITE_BETS_COLLECTION_ID={...}
+EXPO_PUBLIC_APPWRITE_POINTS_TRANSACTIONS_COLLECTION_ID={...}
 ```
 
 ## Learn more
@@ -55,6 +58,14 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## TODO Items 📋
+
+### Betting System Enhancements
+- **House User Account**: Currently house bets use `bettor2Id: null`. Eventually create a dedicated "house" user account for cleaner data modeling and reporting.
+- **Advanced Odds System**: Currently uses fixed odds from games collection. Future: dynamic odds, custom odds for P2P bets.
+- **Bet Matching Algorithm**: Implement smart matching for P2P bets based on preferences, amounts, timing.
+- **Multi-Sport Support**: Extend beyond current game structure to support different sports with varying bet types.
 
 ## Potential 🐛
 
