@@ -61,6 +61,9 @@ Join our community of developers creating universal apps.
 
 ## TODO Items 📋
 
+### Security & Permissions ⚠️
+- **Database Permissions Review**: Currently using permissive permissions for development. **CRITICAL**: Review and tighten all collection permissions before production deployment. Each collection needs proper read/write/create/delete permissions based on user roles and ownership.
+
 ### Betting System Enhancements
 - **House User Account**: Currently house bets use `bettor2Id: null`. Eventually create a dedicated "house" user account for cleaner data modeling and reporting.
 - **Advanced Odds System**: Currently uses fixed odds from games collection. Future: dynamic odds, custom odds for P2P bets.

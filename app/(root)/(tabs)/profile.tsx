@@ -7,17 +7,22 @@ import {
   TouchableOpacity,
   ImageSourcePropType,
 } from "react-native";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import icons from "@/constants/icons";
 import images from "@/constants/images";
 import { settings } from "@/constants/data";
-import { logout, uploadToStorage } from "@/lib/appwrite";
+import { logout, uploadToStorage, getUserBalance } from "@/lib/appwrite";
 import { useGlobalContext } from "@/lib/global-provider";
 import * as ImagePicker from "expo-image-picker";
 import { config, updateUserProfilePhoto } from "@/lib/appwrite";
 import { getUserProfilePic } from "@/lib/appwrite";
 import { useAppwrite } from "@/lib/useAppwrite";
+import { UserBalance } from "@/types";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { PointsCard } from "@/components/profile/PointsCard";
+import { BetsTab } from "@/components/profile/BetsTab";
+import { PointsTab } from "@/components/profile/PointsTab";
 
 interface SettingsItemProps {
   title: string;
@@ -41,7 +46,7 @@ const SettingsItem = ({
     >
       <View className="flex flex-row items-center gap-3">
         <Image source={icon} className="size-6" />
-        <Text className="{`text-lg font-rubik-medium text-black-300 ${textStyle}`}">
+        <Text className={`text-lg font-rubik-medium text-black-300 ${textStyle || ''}`}>
           {title}
         </Text>
       </View>
@@ -52,6 +57,13 @@ const SettingsItem = ({
 
 const Profile = () => {
   const { user, refetch } = useGlobalContext();
+  const [activeTab, setActiveTab] = useState<'overview' | 'bets' | 'points' | 'settings'>('overview');
+  const [balance, setBalance] = useState<UserBalance>({ 
+    totalPoints: 0, 
+    pendingBets: 0, 
+    availablePoints: 0 
+  });
+  const [balanceLoading, setBalanceLoading] = useState(true);
 
   const { data: profileUrl, loading } = useAppwrite(
     {
@@ -61,6 +73,29 @@ const Profile = () => {
     },
     [user]
   );
+
+  const fetchBalance = async () => {
+    if (!user?.$id) return;
+    
+    try {
+      const userBalance = await getUserBalance(user.$id);
+      setBalance(userBalance);
+    } catch (error) {
+      console.error('Failed to fetch user balance:', error);
+      // Set default balance on error
+      setBalance({
+        totalPoints: 0,
+        pendingBets: 0,
+        availablePoints: 0,
+      });
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBalance();
+  }, [user?.$id]);
 
   const handleLogout = async () => {
     const result = await logout();
@@ -73,97 +108,146 @@ const Profile = () => {
     }
   };
 
-  const handleEditProfilePic = async () => {
-    try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "We may need camera roll permissions to make this work. Please enable it from settings."
+  const TabButton = ({ id, title, active, onPress }: {
+    id: string;
+    title: string;
+    active: boolean;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity
+      className={`flex-1 py-3 items-center border-b-2 ${
+        active ? 'border-primary-600' : 'border-transparent'
+      }`}
+      onPress={onPress}
+    >
+      <Text className={`font-rubik-medium ${
+        active ? 'text-primary-600' : 'text-gray-500'
+      }`}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+            <PointsCard 
+              balance={balance} 
+              onViewDetails={() => setActiveTab('points')} 
+            />
+            {/* Settings Section */}
+            <View className="mx-4 mb-6">
+              <Text className="text-lg font-rubik-bold text-gray-900 mb-4">Quick Actions</Text>
+              <View className="bg-white rounded-2xl shadow-sm shadow-black/5">
+                <SettingsItem title="My Bookings" icon={icons.calendar} />
+                <View className="h-px bg-gray-100 mx-4" />
+                <SettingsItem title="Payments" icon={icons.wallet} />
+                <View className="h-px bg-gray-100 mx-4" />
+                {settings.slice(2).map((item, index) => (
+                  <View key={index}>
+                    <SettingsItem {...item} />
+                    {index < settings.slice(2).length - 1 && (
+                      <View className="h-px bg-gray-100 mx-4" />
+                    )}
+                  </View>
+                ))}
+                <View className="h-px bg-gray-200 mx-4" />
+                <SettingsItem
+                  title="Logout"
+                  icon={icons.logout}
+                  onPress={handleLogout}
+                  textStyle="text-red-600"
+                  showArrow={false}
+                />
+              </View>
+            </View>
+          </ScrollView>
         );
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 1,
-      });
-
-      if (result.canceled) return;
-
-      const uri = result.assets[0].uri;
-      const uploadResponse = await uploadToStorage(uri);
-
-      if (uploadResponse && uploadResponse.$id) {
-        // Construct the public URL using the file ID
-        const publicUrl = `${config.endpoint}/storage/buckets/${config.profilePicBucketId}/files/${uploadResponse.$id}/view?project=${config.projectId}`;
-
-        const updateResponse = await updateUserProfilePhoto(publicUrl);
-        console.log(updateResponse);
-
-        if (updateResponse) {
-          Alert.alert("Success", "Profile picture updated successfully");
-          refetch(); // Refresh profile data
-        } else {
-          Alert.alert("Error", "Failed to update profile picture");
-        }
-      } else {
-        Alert.alert("Error", "Failed to upload profile picture");
-      }
-    } catch (error) {
-      console.error("Error updating profile picture:", error);
+      case 'bets':
+        return <BetsTab />;
+      case 'points':
+        return <PointsTab />;
+      case 'settings':
+        return (
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-4">
+            <View className="bg-white rounded-2xl shadow-sm shadow-black/5 mt-4">
+              <SettingsItem title="My Bookings" icon={icons.calendar} />
+              <View className="h-px bg-gray-100 mx-4" />
+              <SettingsItem title="Payments" icon={icons.wallet} />
+              <View className="h-px bg-gray-100 mx-4" />
+              {settings.slice(2).map((item, index) => (
+                <View key={index}>
+                  <SettingsItem {...item} />
+                  {index < settings.slice(2).length - 1 && (
+                    <View className="h-px bg-gray-100 mx-4" />
+                  )}
+                </View>
+              ))}
+              <View className="h-px bg-gray-200 mx-4" />
+              <SettingsItem
+                title="Logout"
+                icon={icons.logout}
+                onPress={handleLogout}
+                textStyle="text-red-600"
+                showArrow={false}
+              />
+            </View>
+          </ScrollView>
+        );
+      default:
+        return null;
     }
   };
 
-  console.log("PROFILE URL", profileUrl);
+  if (!user) return null;
 
   return (
-    <SafeAreaView className="h-full bg-white">
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerClassName="pb-32 px-7"
-      >
-        <View className="flex flex-row items-center justify-between mt-5">
-          <Text className="text-xl font-rubik-bold">Profile</Text>
-          <Image source={icons.bell} className="size-5" />
-        </View>
+    <SafeAreaView className="h-full bg-gray-50">
+      {/* Enhanced Header */}
+      <ProfileHeader
+        user={user}
+        balance={balance}
+        profileUrl={profileUrl}
+        loading={loading}
+        onRefetch={refetch}
+      />
 
-        <View className="flex-row justify-center flex mt-5">
-          <View className="flex flex-col items-center relative mt-5">
-            <Image
-              source={{
-                uri: loading ? user.avatar : profileUrl || user.avatar,
-              }}
-              className="size-44 relative rounded-full"
-            />
-            <TouchableOpacity
-              className="absolute bottom-11 right-2"
-              onPress={handleEditProfilePic}
-            >
-              <Image source={icons.edit} className="size-9" />
-            </TouchableOpacity>
-            <Text className="text-2xl font-rubik-bold mt-2">{user?.name}</Text>
-          </View>
-        </View>
-        <View className="flex flex-col mt-10">
-          <SettingsItem title="My Bookings" icon={icons.calendar} />
-          <SettingsItem title="Payments" icon={icons.wallet} />
-        </View>
-        <View className="flex flex-col mt-5 border-t pt-5 border-primary-200">
-          {settings.slice(2).map((item, index) => (
-            <SettingsItem key={index} {...item} />
-          ))}
-        </View>
-        <View className="flex flex-col mt-5 border-t pt-5 border-primary-200">
-          <SettingsItem
-            title="Logout"
-            icon={icons.logout}
-            onPress={handleLogout}
-            textStyle="text-danger"
-            showArrow={false}
+      {/* Tab Navigation */}
+      <View className="bg-white mx-4 rounded-2xl mt-4 shadow-sm shadow-black/5">
+        <View className="flex-row">
+          <TabButton
+            id="overview"
+            title="Overview"
+            active={activeTab === 'overview'}
+            onPress={() => setActiveTab('overview')}
+          />
+          <TabButton
+            id="bets"
+            title="Bets"
+            active={activeTab === 'bets'}
+            onPress={() => setActiveTab('bets')}
+          />
+          <TabButton
+            id="points"
+            title="Points"
+            active={activeTab === 'points'}
+            onPress={() => setActiveTab('points')}
+          />
+          <TabButton
+            id="settings"
+            title="Settings"
+            active={activeTab === 'settings'}
+            onPress={() => setActiveTab('settings')}
           />
         </View>
-      </ScrollView>
+      </View>
+
+      {/* Content */}
+      <View className="flex-1 mt-4">
+        {renderContent()}
+      </View>
     </SafeAreaView>
   );
 };

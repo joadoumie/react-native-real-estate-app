@@ -29,11 +29,14 @@ export default function Leaderboard() {
     [user]
   );
 
-  const { data, refetch, loading } = useAppwrite<{
-    leaderboard: LeaderboardUser[];
-    userRank?: string;
-    userBalance?: number;
-  }>({
+  const { data, refetch, loading } = useAppwrite<
+    {
+      leaderboard: IUser[];
+      userRank?: string;
+      userBalance?: number;
+    },
+    any
+  >({
     fn: () => getSortedUsersByBalance(user?.email),
   });
 

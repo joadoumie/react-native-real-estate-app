@@ -20,6 +20,9 @@ export type IUser = {
   balance: number;
   username: string;
   rank?: string;
+  placedBets: IBet[];
+  matchedBets: IBet[];
+  transactions: IPointsTransaction[];
 };
 
 export type INewComment = {

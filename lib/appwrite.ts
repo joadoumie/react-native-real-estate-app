@@ -10,7 +10,17 @@ import {
 } from "react-native-appwrite";
 import * as Linking from "expo-linking";
 import { openAuthSessionAsync } from "expo-web-browser";
-import { INewPost, INewUser, INewComment, INewLike, IBet, IPointsTransaction, IGame, UserBalance } from "@/types";
+import {
+  INewPost,
+  INewUser,
+  IUser,
+  INewComment,
+  INewLike,
+  IBet,
+  IPointsTransaction,
+  IGame,
+  UserBalance,
+} from "@/types";
 import * as FileSystem from "expo-file-system";
 import { getOrdinalSuffix } from "@/lib/helpers";
 
@@ -31,7 +41,8 @@ export const config = {
   likesCollectionId: process.env.EXPO_PUBLIC_APPWRITE_LIKES_COLLECTION_ID,
   gamesCollectionId: process.env.EXPO_PUBLIC_APPWRITE_GAMES_COLLECTION_ID,
   betsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_BETS_COLLECTION_ID,
-  pointsTransactionsCollectionId: process.env.EXPO_PUBLIC_APPWRITE_POINTS_TRANSACTIONS_COLLECTION_ID,
+  pointsTransactionsCollectionId:
+    process.env.EXPO_PUBLIC_APPWRITE_POINTS_TRANSACTIONS_COLLECTION_ID,
 };
 
 export const client = new Client();
@@ -48,6 +59,13 @@ export const storage = new Storage(client);
 
 export async function login() {
   try {
+    // First, clear any existing sessions
+    try {
+      await account.deleteSession("current");
+    } catch (e) {
+      // Session might not exist, ignore error
+    }
+
     const redirectUri = Linking.createURL("/");
     const response = await account.createOAuth2Token(
       OAuthProvider.Google,
@@ -69,28 +87,32 @@ export async function login() {
     const userId = url.searchParams.get("userId")?.toString();
 
     if (!secret || !userId) throw new Error("Failed to login");
-    const session = await account.createSession(userId, secret);
 
+    const session = await account.createSession(userId, secret);
     if (!session) throw new Error("Failed to create session");
 
     const user = await account.get();
 
     // Check if user is already in our DB
-    const userDoc = await getUserByEmail(user.email || "");
-    if (!userDoc) {
-      // Create user in our DB if it does not exist
-      const user = await account.get();
-      await createUser({
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        balance: 0,
-      });
+    try {
+      const userDoc = await getUserByEmail(user.email || "");
+      if (!userDoc) {
+        // Create user in our DB if it does not exist
+        await createUser({
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          balance: 1000, // Give new users starting balance
+        });
+      }
+    } catch (dbError) {
+      console.error("Database error during login:", dbError);
+      // Continue login even if DB operation fails
     }
 
     return true;
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
     return false;
   }
 }
@@ -146,6 +168,7 @@ export async function uploadToStorage(
 export async function getCurrentUser() {
   try {
     const response = await account.get();
+    console.log("getCurrentUser response:", response);
 
     if (response.$id) {
       const userAvatar = avatar.getInitials(response.name);
@@ -156,7 +179,7 @@ export async function getCurrentUser() {
       };
     }
   } catch (error) {
-    console.error(error);
+    console.error("getCurrentUser error:", error);
     return null;
   }
 }
@@ -380,7 +403,7 @@ export async function getSortedUsersByBalance(userEmail?: string): Promise<{
   userBalance?: number;
 }> {
   try {
-    const users = await databases.listDocuments(
+    const users = await databases.listDocuments<IUser>(
       config.databaseId!,
       config.usersCollectionId!,
       [Query.orderDesc("balance")]
@@ -682,20 +705,32 @@ async function updateItemLikeCount(
 // ===== BETTING SYSTEM FUNCTIONS =====
 
 // Points Management Functions
-export async function getUserBalance(userId: string): Promise<UserBalance> {
+export async function getUserBalance(userIdOrEmail: string): Promise<UserBalance> {
   try {
-    const user = await databases.getDocument(
-      config.databaseId!,
-      config.usersCollectionId!,
-      userId
-    );
+    // First try to get user by document ID, if that fails, try by email
+    let user;
+    try {
+      user = await databases.getDocument(
+        config.databaseId!,
+        config.usersCollectionId!,
+        userIdOrEmail
+      );
+    } catch (error) {
+      // If direct lookup fails, try to find by email (in case we got account ID instead of document ID)
+      const currentAccount = await account.get();
+      const userDoc = await getUserByEmail(currentAccount.email);
+      if (!userDoc) {
+        throw new Error("User not found in database");
+      }
+      user = userDoc;
+    }
 
-    // Calculate pending bets amount
+    // Calculate pending bets amount - use user's document ID
     const activeBets = await databases.listDocuments(
       config.databaseId!,
       config.betsCollectionId!,
       [
-        Query.equal("bettor1Id", userId),
+        Query.equal("bettor1Id", user.$id),
         Query.equal("status", ["open", "matched", "active"]),
       ]
     );
@@ -784,8 +819,9 @@ export async function placeBet(betData: IBet) {
     }
 
     // Set odds based on selection and bet mode
-    const odds = betData.bettor1Selection === "home" ? game.homeOdds : game.awayOdds;
-    
+    const odds =
+      betData.bettor1Selection === "home" ? game.homeOdds : game.awayOdds;
+
     const bet: IBet = {
       ...betData,
       bettor1Odds: odds,
@@ -794,8 +830,10 @@ export async function placeBet(betData: IBet) {
 
     // If P2P bet, set opposite selection for bettor2
     if (betData.betMode === "p2p") {
-      bet.bettor2Selection = betData.bettor1Selection === "home" ? "away" : "home";
-      bet.bettor2Odds = betData.bettor1Selection === "home" ? game.awayOdds : game.homeOdds;
+      bet.bettor2Selection =
+        betData.bettor1Selection === "home" ? "away" : "home";
+      bet.bettor2Odds =
+        betData.bettor1Selection === "home" ? game.awayOdds : game.homeOdds;
     }
 
     // Create bet record
@@ -928,7 +966,11 @@ export async function settleBet(betId: string, gameWinner: "home" | "away") {
       } else {
         loserId = "house";
       }
-    } else if (bet.betMode === "p2p" && bet.bettor2Id && bet.bettor2Selection === gameWinner) {
+    } else if (
+      bet.betMode === "p2p" &&
+      bet.bettor2Id &&
+      bet.bettor2Selection === gameWinner
+    ) {
       winnerId = bet.bettor2Id;
       bettor2Won = true;
       loserId = bet.bettor1Id;
@@ -942,8 +984,13 @@ export async function settleBet(betId: string, gameWinner: "home" | "away") {
     }
 
     // Calculate payouts
-    const bettor1Payout = bettor1Won ? calculatePayout(bet.amount, bet.bettor1Odds) : 0;
-    const bettor2Payout = bettor2Won && bet.bettor2Odds ? calculatePayout(bet.amount, bet.bettor2Odds) : 0;
+    const bettor1Payout = bettor1Won
+      ? calculatePayout(bet.amount, bet.bettor1Odds)
+      : 0;
+    const bettor2Payout =
+      bettor2Won && bet.bettor2Odds
+        ? calculatePayout(bet.amount, bet.bettor2Odds)
+        : 0;
 
     // Update bet record
     await databases.updateDocument(
@@ -975,7 +1022,7 @@ export async function settleBet(betId: string, gameWinner: "home" | "away") {
         config.usersCollectionId!,
         bet.bettor1Id
       );
-      
+
       await databases.updateDocument(
         config.databaseId!,
         config.usersCollectionId!,
@@ -1000,7 +1047,7 @@ export async function settleBet(betId: string, gameWinner: "home" | "away") {
         config.usersCollectionId!,
         bet.bettor2Id
       );
-      
+
       await databases.updateDocument(
         config.databaseId!,
         config.usersCollectionId!,
@@ -1048,7 +1095,10 @@ export async function getGameById(gameId: string) {
 }
 
 // Get open P2P bets that users can join
-export async function getOpenP2PBets(excludeUserId?: string, limit: number = 20) {
+export async function getOpenP2PBets(
+  excludeUserId?: string,
+  limit: number = 20
+) {
   try {
     const queries = [
       Query.equal("betMode", "p2p"),
